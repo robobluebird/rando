@@ -50,6 +50,8 @@ puts r.total_sample_frames
 
 main_buffer = Array.new r.total_sample_frames
 
+puts "copying to main buffer"
+
 i = 0
 r.each_buffer do |b|
   b.samples.each do |s|
@@ -59,6 +61,8 @@ r.each_buffer do |b|
 end
 
 drums = {}
+
+puts "making drums"
 
 %w(h r s k).each do |d|
   begin
@@ -93,8 +97,9 @@ end
 # puts "samples per minute: #{r.format.sample_rate * 60}"
 # puts "samples per beat @ #{bpm} beats per minute: #{(r.format.sample_rate * 60) / bpm}"
 
-dir_name = Time.now.to_i.to_s
-Dir.mkdir dir_name
+dir_name = file_name.split('.').first
+
+Dir.mkdir(dir_name) unless Dir.exist? dir_name
 
 total_size = main_buffer.count
 
@@ -140,6 +145,8 @@ sixteenths = []
   sample = main_buffer[start...(start + whole_size)]
   wholes.push sample
 end
+
+puts "collecting samples"
 
 4.times do |i|
   start = nil
@@ -243,7 +250,13 @@ drum_patterns = [
   {
     hat:   'x-x-x-x-x-x-x-x-',
     ride:  '----------------',
-    snare: 'x---x---x---x---',
+    snare: '----------------',
+    kick:  'x---x---x---x-x-'
+  },
+  {
+    hat:   '----------------',
+    ride:  'x-x-x-x-x-x-x-x-',
+    snare: '----------------',
     kick:  'x---x---x---x-x-'
   },
   {
@@ -264,7 +277,57 @@ drum_patterns = [
     snare: '----x-------x---',
     kick:  'x------xx-------'
   },
+  {
+    hat:   '----------------',
+    ride:  '----------------',
+    snare: '----------------',
+    kick:  'x---x---x---x---'
+  },
+  {
+    hat:   '----------------',
+    ride:  'x-------x-------',
+    snare: '----------------',
+    kick:  '----------------'
+  },
+  {
+    hat:   '----------------',
+    ride:  'x---x---x---x---',
+    snare: '----------------',
+    kick:  '----------------'
+  },
+  {
+    hat:   '----------------',
+    ride:  '------------x---',
+    snare: '------------x---',
+    kick:  '------------x---'
+  },
+  {
+    hat:   '--x---x---x---x-',
+    ride:  '----------------',
+    snare: '----------------',
+    kick:  '----------------'
+  },
+  {
+    hat:   '----------------',
+    ride:  '----------------',
+    snare: '----x---xx--x---',
+    kick:  'x--x--x---x-x---'
+  },
+  {
+    hat:   '----------------',
+    ride:  'x---------------',
+    snare: '----------------',
+    kick:  '----------------'
+  },
+  {
+    hat:   '----------------',
+    ride:  '----------------',
+    snare: '----x-x-----x---',
+    kick:  'x-x-------x-----'
+  }
 ]
+
+puts "making beats"
 
 beats = []
 
@@ -304,17 +367,19 @@ drum_patterns.each do |pattern|
   beats << full_beat
 end
 
+puts "making patterns"
+
 example = [[0], [1], [2], [3], [4], [5], [6], [7], [8], [9], [10], [11], [12]]
 
 bars = []
 bars_with_beats = []
 
 example.each.with_index do |ex, g|
-  w = wholes[rand(wholes.count)]
-  h = halves[rand(halves.count)]
-  q = quarters[rand(quarters.count)]
-  e = eighths[rand(eighths.count)]
-  s = sixteenths[rand(sixteenths.count)]
+  w = wholes.sample
+  h = halves.sample
+  q = quarters.sample
+  e = eighths.sample
+  s = sixteenths.sample
 
   amb = []
 
@@ -363,15 +428,17 @@ end
 
 # generate random bars with no pattern
 
+puts "making random samples"
+
 5.times do |n|
   i = 0
   sequence = []
   ns = []
-  rand_whole = wholes[rand(wholes.count)]
-  rand_half = halves[rand(halves.count)]
-  rand_quarter = quarters[rand(quarters.count)]
-  rand_eighth = eighths[rand(eighths.count)]
-  rand_sixteenth = sixteenths[rand(sixteenths.count)]
+  rand_whole = wholes.sample
+  rand_half = halves.sample
+  rand_quarter = quarters.sample
+  rand_eighth = eighths.sample
+  rand_sixteenth = sixteenths.sample
 
   while i < 16 do
     len = [1, 2, 4, 8, 16].sample
@@ -386,7 +453,6 @@ end
         if i + len - 1 < 16 && !did_operate
           puts "pushing 16, len = #{len}"
           thing_to_push = rand_whole
-          wholes.delete rand_whole
           did_operate = true
         else
           len = [1, 2, 4, 8].sample
@@ -397,7 +463,6 @@ end
         if i + len - 1 < 16 && !did_operate
           puts "pushing 8, len = #{len}"
           thing_to_push = rand_half
-          halves.delete rand_half
           did_operate = true
         else
           len = [1, 2, 4].sample
@@ -408,7 +473,6 @@ end
         if i + len - 1 < 16 && !did_operate
           puts "pushing 4, len = #{len}"
           thing_to_push = rand_quarter
-          quarters.delete rand_quarter
           did_operate = true
         else
           len = [1, 2].sample
@@ -419,7 +483,6 @@ end
         if i + len - 1 < 16 && !did_operate
           puts "pushing 2, len = #{len}"
           thing_to_push = rand_eighth
-          eighths.delete rand_eighth
           did_operate = true
         else
           len = 1
@@ -429,7 +492,6 @@ end
       if len == 1 && !did_operate
         puts "pushing 1, len = #{len}"
         thing_to_push = rand_sixteenth
-        sixteenths.delete rand_sixteenth
       end
 
       ns << [i, len, thing_to_push]
@@ -512,11 +574,20 @@ end
 
 # now add beats versions of each measure
 
+puts "making beats-versions of samples"
+
 i = 0
 original_count = bars.count
 
+bb = beats.map.with_index { |b, l| l }.shuffle
+
 while i < original_count do
-  bars << merge_samples(bars[i], beats[rand(6)])
+  if bb.count == 0
+    bb = beats.map.with_index { |b, l| l }.shuffle
+  end
+
+  bars << merge_samples(bars[i], beats[bb.shift])
+
   i += 1
 end
 
@@ -525,6 +596,8 @@ puts "NEW BAR COUNT: #{bars.count}"
 # make a thingy
 
 generated_measures = bars.map { |b| b.map { |s| s } }
+
+puts "randomly applying reverb"
 
 generated_measures.each.with_index do |gm, gi|
   roll = rand 5
@@ -564,14 +637,9 @@ generated_measures.each.with_index do |gm, gi|
   end
 end
 
-generated_measures.each.with_index do |gm, gmi|
-  Writer.new("#{dir_name}/sampleWHAT#{gmi}.wav", Format.new(:stereo, :pcm_16, 16000)) do |w|
-    b = Buffer.new gm, Format.new(:stereo, :pcm_16, 16000)
-    w.write b
-  end
-end
-
 # generate a song
+
+puts "making song"
 
 # get first frame
 sequence = []
@@ -639,7 +707,7 @@ while i < measures_needed do
       puts "choices: #{choices.inspect}"
 
       if choices.count > 0
-        new_index = choices[rand(choices.count)]
+        new_index = choices.sample
 
         puts "new chosen index: #{new_index}"
 
@@ -693,7 +761,7 @@ while i < measures_needed do
         puts "choices: #{choices.inspect}"
 
         if choices.count > 0
-          new_index = choices[rand(choices.count)]
+          new_index = choices.sample
 
           puts "new chosen index: #{new_index}"
 
@@ -761,7 +829,11 @@ sequence.each do |s|
   end
 end
 
-Writer.new("C:/Users/Lenovo/Documents/Bullshit/song#{Time.now.to_i}.wav", Format.new(:stereo, :pcm_16, 16000)) do |w|
+samples_per_measure.times do
+  all_data << [0, 0]
+end
+
+Writer.new("#{dir_name}/song#{Time.now.to_i}.wav", Format.new(:stereo, :pcm_16, 16000)) do |w|
   b = Buffer.new all_data, Format.new(:stereo, :pcm_16, 16000)
   w.write b
 end
