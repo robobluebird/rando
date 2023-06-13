@@ -1,12 +1,14 @@
 GEM
   remote: https://rubygems.org/
   specs:
+    mini_magick (4.12.0)
     wavefile (1.1.2)
 
 PLATFORMS
   x64-mingw-ucrt
 
 DEPENDENCIES
+  mini_magick
   wavefile
 
 RUBY VERSION
