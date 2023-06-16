@@ -242,6 +242,12 @@ iterations.times do
 
   drum_patterns = [
     {
+      hat:   'x-x-x-x-x-x-x-x-',
+      ride:  '----------------',
+      snare: '----------------',
+      kick:  '----------------'
+    },
+    {
       hat:   'x---x---x---x---',
       ride:  '----------------',
       snare: '----x-------x---',
@@ -256,12 +262,6 @@ iterations.times do
     {
       hat:   'x-x-x-x-x-x-x-x-',
       ride:  '----------------',
-      snare: '----------------',
-      kick:  'x---x---x---x-x-'
-    },
-    {
-      hat:   '----------------',
-      ride:  'x-x-x-x-x-x-x-x-',
       snare: '----------------',
       kick:  'x---x---x---x-x-'
     },
@@ -291,19 +291,13 @@ iterations.times do
     },
     {
       hat:   '----------------',
-      ride:  'x-------x-------',
-      snare: '----------------',
-      kick:  '----------------'
-    },
-    {
-      hat:   '----------------',
       ride:  'x---x---x---x---',
       snare: '----------------',
       kick:  '----------------'
     },
     {
       hat:   '----------------',
-      ride:  '------------x---',
+      ride:  '----------------',
       snare: '------------x---',
       kick:  '------------x---'
     },
@@ -330,6 +324,18 @@ iterations.times do
       ride:  '----------------',
       snare: '----x-x-----x---',
       kick:  'x-x-------x-----'
+    },
+    {
+      hat:   '----------------',
+      ride:  '----------------',
+      snare: '----x-------x---',
+      kick:  'x--x------x--x--'
+    },
+    {
+      hat:   '----------------',
+      ride:  '----------------',
+      snare: 'x-x-x-x-x-x-x-x-',
+      kick:  'x---------------'
     }
   ]
 
@@ -583,7 +589,9 @@ iterations.times do
   puts "making beats-versions of samples"
 
   i = 0
-  original_count = bars.count
+  original_count = bars.count - 5
+
+  puts "ORIGNAL BAR COUNT: #{bars.count}"
 
   bb = beats.map.with_index { |b, l| l }.shuffle
 
@@ -592,7 +600,7 @@ iterations.times do
       bb = beats.map.with_index { |b, l| l }.shuffle
     end
 
-    bars << merge_samples(bars[i], beats[bb.shift])
+    bars << merge_samples(bars[i].map { |s| s }, beats[bb.shift])
 
     i += 1
   end
@@ -673,22 +681,28 @@ iterations.times do
     frame_type = rand 4
 
     if frame_type == 0 # play a different measure
-      new_index = rand(generated_measures.count)
-      tries = 0
+      # don't layer drum parts on top of each other, so exclude drumified measures from choices
+      # if a drum part exists on the previous frame
+      has_a_drum_part = sequence[i - 1][0].find_index { |e| e > original_count - 1 } != nil
+      choices = []
 
-      while sequence[i - 1][0].include?(new_index) && tries < 10 do
-        puts "conflicting new index of #{new_index} with previous frame being #{sequence[i - 1][0].inspect}"
-        new_index = rand(generated_measures.count)
-        puts "trying #{new_index}"
-        tries += 1
+      if has_a_drum_part
+        puts "found a drum part in previous frame (#{sequence[i - 1][0].inspect} so exclude drums)"
+        choices = generated_measures[0...original_count].map.with_index { |g, i| i } - sequence[i - 1][0]
+      else
+        choices = generated_measures.map.with_index { |g, i| i } - sequence[i - 1][0]
       end
 
-      if new_index > -1
-        puts "got a good new index of #{new_index}"
+      puts "choices: #{choices.inspect}"
+
+      if choices.count > 0
+        new_index = choices.sample
+
+        puts "new chosen index: #{new_index}"
 
         sequence[i] = [
-          [new_index],
-          generated_measures[new_index].map { |sf| sf.map { |bf| bf } }
+          sequence[i - 1][0][0..-1] << new_index,
+          merge_samples(sequence[i - 1][1].map { |sf| sf.map { |bf| bf }}, generated_measures[new_index].map { |sf| sf.map { |bf| bf } })
         ]
       else
         puts "failed this round..."
