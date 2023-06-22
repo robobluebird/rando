@@ -5,6 +5,8 @@ include WaveFile
 
 # sox song.wav -(bit)r(ate) 16000 -c(hannels) 2 -b(it depth) 16
 
+format = Format.new :stereo, :pcm_16, 16000
+
 def merge_samples *samples
   if samples.count == 1
     return samples[0]
@@ -35,8 +37,6 @@ def merge_samples *samples
 end
 
 file_name = ARGV.first
-format = Format.new :stereo, :pcm_16, 16000
-
 drum_type = ARGV[1]
 puts drum_type
 
@@ -56,9 +56,6 @@ rescue
   puts "no/bad file"
   return
 end
-
-puts r.format.inspect
-puts r.total_sample_frames
 
 main_buffer = Array.new r.total_sample_frames
 
@@ -589,7 +586,7 @@ iterations.times do
   puts "making beats-versions of samples"
 
   i = 0
-  original_count = bars.count - 5
+  original_count = bars.count
 
   puts "ORIGNAL BAR COUNT: #{bars.count}"
 
@@ -657,9 +654,16 @@ iterations.times do
 
   # get first frame
   sequence = []
+  idx = 0
+  rand_start = rand(3) == 2
+
+  if rand_start
+    idx = rand generated_measures.count
+  end
+
   sequence[0] = [
-    [0],
-    generated_measures[0].map { |sf| sf.map { |bf| bf } }
+    [idx],
+    generated_measures[idx].map { |sf| sf.map { |bf| bf } }
   ]
 
   # now do some random shit
@@ -700,8 +704,19 @@ iterations.times do
 
         puts "new chosen index: #{new_index}"
 
+        new_sequence = sequence[i - 1][0][0..-1] << new_index
+
+        if new_index > original_count - 1
+          if sequence[i - 1][0].include? new_index - original_count
+            puts "GOTTA REMOVE THAT NON-DRUM VERSION BRO"
+            puts new_sequence.inspect
+            new_sequence.delete new_index - original_count
+            puts new_sequence.inspect
+          end
+        end
+
         sequence[i] = [
-          sequence[i - 1][0][0..-1] << new_index,
+          new_sequence, 
           merge_samples(sequence[i - 1][1].map { |sf| sf.map { |bf| bf }}, generated_measures[new_index].map { |sf| sf.map { |bf| bf } })
         ]
       else
@@ -731,8 +746,19 @@ iterations.times do
 
           puts "new chosen index: #{new_index}"
 
+          new_sequence = sequence[i - 1][0][0..-1] << new_index
+
+          if new_index > original_count - 1
+            if sequence[i - 1][0].include? new_index - original_count
+              puts "GOTTA REMOVE THAT NON-DRUM VERSION BRO"
+              puts new_sequence.inspect
+              new_sequence.delete new_index - original_count
+              puts new_sequence.inspect
+            end
+          end
+
           sequence[i] = [
-            sequence[i - 1][0][0..-1] << new_index,
+            new_sequence, 
             merge_samples(sequence[i - 1][1].map { |sf| sf.map { |bf| bf }}, generated_measures[new_index].map { |sf| sf.map { |bf| bf } })
           ]
         else
@@ -763,7 +789,7 @@ iterations.times do
 
         puts "in rando add/subtract, flip = #{flip}"
 
-        if flip == 0
+        if flip == 0 && sequence[i - 1][0].count < 4
           puts "adding something to previous frame (didn't have to)"
 
           # don't layer drum parts on top of each other, so exclude drumified measures from choices
@@ -785,8 +811,19 @@ iterations.times do
 
             puts "new chosen index: #{new_index}"
 
+            new_sequence = sequence[i - 1][0][0..-1] << new_index
+
+            if new_index > original_count - 1
+              if sequence[i - 1][0].include? new_index - original_count
+                puts "GOTTA REMOVE THAT NON-DRUM VERSION BRO"
+                puts new_sequence.inspect
+                new_sequence.delete new_index - original_count
+                puts new_sequence.inspect
+              end
+            end
+
             sequence[i] = [
-              sequence[i - 1][0][0..-1] << new_index,
+              new_sequence,
               merge_samples(sequence[i - 1][1].map { |sf| sf.map { |bf| bf } }, generated_measures[new_index].map { |sf| sf.map { |bf| bf } })
             ]
           else
@@ -818,8 +855,13 @@ iterations.times do
         sequence[i - 1][0][0..-1],
         sequence[i - 1][1].map { |sf| sf.map { |bf| bf }}.reverse
       ]
-    elsif frame_type == 3 # play a random previous frame
-      pick = rand sequence.count
+    elsif frame_type == 3 # play a random previous frame or just the last frame
+      roll = rand 2
+      pick = i - 1
+
+      if roll == 1
+        pick = rand sequence.count
+      end
 
       sequence[i] = [
         sequence[pick][0],
@@ -855,9 +897,8 @@ iterations.times do
 
   time = Time.now.to_i
 
-  Writer.new("#{dir_name}/song#{time}.wav", Format.new(:stereo, :pcm_16, 16000)) do |w|
-    b = Buffer.new all_data, Format.new(:stereo, :pcm_16, 16000)
-    w.write b
+  Writer.new("#{dir_name}/song#{time}.wav", format) do |writer|
+    writer.write Buffer.new(all_data, format)
   end
 
   puts 'doing rms'
