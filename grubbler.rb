@@ -1,6 +1,11 @@
 require 'mini_magick'
 
 file_name = ARGV.first
+parts = file_name.split('.')
+dir_name = parts[0].split('\\')[0...-1].join('\\')
+
+puts parts.inspect
+puts dir_name
 
 begin
   img = MiniMagick::Image.open file_name
@@ -85,21 +90,19 @@ end
 width = final[0].count * 16
 height = final.count * 16
 
-filename = "#{Time.now.to_i.to_s}.png"
+filepath = File.join dir_name, "#{Time.now.to_i.to_s}.png"
 
 MiniMagick::Tool::Magick.new do |magick|
   magick.size "#{width}x#{height}"
   magick << 'xc:none'
-  magick << filename
+  magick << filepath
 end
 
 final.each.with_index do |row, index|
   magick = MiniMagick::Tool::Magick.new
-  magick << filename
+  magick << filepath
   x = 0
   y = index * 16
-
-  puts "#{y}"
 
   row.each do |rgb|
     magick.fill "rgba(#{rgb[0]}, #{rgb[1]}, #{rgb[2]}, 1)"
@@ -107,7 +110,6 @@ final.each.with_index do |row, index|
     x += 16
   end
 
-  puts "final x = #{x}"
-  magick << filename
+  magick << filepath
   magick.call
 end

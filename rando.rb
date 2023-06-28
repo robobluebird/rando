@@ -1,3 +1,5 @@
+# ruby rando.rb path-to-file number-of-iterations
+
 require 'mini_magick'
 require 'wavefile'
 
@@ -37,12 +39,10 @@ def merge_samples *samples
 end
 
 file_name = ARGV.first
-drum_type = ARGV[1]
-puts drum_type
 
 iterations = 1
-if ARGV.count > 2
-  iterations = ARGV[2].to_i
+if ARGV.count > 1
+  iterations = ARGV[1].to_i
 end
 
 puts "#{iterations} iterations"
@@ -57,6 +57,45 @@ rescue
   return
 end
 
+drums = {}
+
+puts "making drums"
+
+drum_types = %w(909)
+
+drum_types.each do |drum_type|
+  drums[drum_type] = {}
+
+  %w(h r s k).each do |d|
+    begin
+      path = "./drums/#{505}/#{d}.wav"
+      dr = Reader.new path, format
+      b = Array.new dr.total_sample_frames
+
+      i = 0
+      dr.each_buffer do |buf|
+        buf.samples.each do |s|
+          b[i] = s
+          i += 1
+        end
+      end
+
+      if d == 'h'
+        drums[drum_type][:hat] = b
+      elsif d == 'r'
+        drums[drum_type][:ride] = b
+      elsif d == 's'
+        drums[drum_type][:snare] = b
+      elsif d == 'k'
+        drums[drum_type][:kick] = b
+      end
+    rescue e
+      puts "no/bad file"
+      return
+    end
+  end
+end
+
 main_buffer = Array.new r.total_sample_frames
 
 puts "copying to main buffer"
@@ -69,42 +108,10 @@ r.each_buffer do |b|
   end
 end
 
-drums = {}
-
-puts "making drums"
-
-%w(h r s k).each do |d|
-  begin
-    r = Reader.new "./drums/#{drum_type}/#{d}.wav", format
-    b = Array.new r.total_sample_frames
-
-    i = 0
-    r.each_buffer do |buf|
-      buf.samples.each do |s|
-        b[i] = s
-        i += 1
-      end
-    end
-
-    if d == 'h'
-      drums[:hat] = b
-    elsif d == 'r'
-      drums[:ride] = b
-    elsif d == 's'
-      drums[:snare] = b
-    elsif d == 'k'
-      drums[:kick] = b
-    end
-  rescue
-    puts "no/bad file"
-    return
-  end
-end
-
 total_size = main_buffer.count
 
 iterations.times do
-  bpm = rand 40..180
+  bpm = rand 60..110
   puts "bpm set to #{bpm}"
 
   samples_per_beat = (r.format.sample_rate * 60) / bpm 
@@ -118,7 +125,7 @@ iterations.times do
 
   measures_per_minute = bpm / 4
   samples_per_minute = r.format.sample_rate * 60
-  measures_needed = samples_per_minute / samples_per_measure
+  measures_needed = samples_per_minute / samples_per_measure / 2
 
   last_whole_start = total_size - whole_size
   last_half_start = total_size - half_size
@@ -132,7 +139,9 @@ iterations.times do
   eighths = []
   sixteenths = []
 
-  4.times do |i|
+  puts "collecting samples"
+
+  while wholes.count < 4 do
     start = nil
 
     if i == 0
@@ -146,12 +155,26 @@ iterations.times do
     end
 
     sample = main_buffer[start...(start + whole_size)].map { |s| s }
-    wholes.push sample
+
+    # do rms here fuck u
+    sum = [0, 0]
+    i = 0
+    rms = sample.each do |s|
+      sum[0] += s[0] * s[0]
+      sum[1] += s[1] * s[1]
+      i += 1
+    end
+
+    rms = (Math.sqrt(sum[0] / sample.count).to_i + Math.sqrt(sum[1] / sample.count).to_i) / 2
+
+    if rms < 12000
+      wholes.push sample
+    else
+      puts "reject a whole sample because rms = #{rms}"
+    end
   end
 
-  puts "collecting samples"
-
-  4.times do |i|
+  while halves.count < 4
     start = nil
 
     if i == 0
@@ -165,10 +188,26 @@ iterations.times do
     end
 
     sample = main_buffer[start...(start + half_size)].map { |s| s }
-    halves.push sample
+
+    # do rms here fuck u
+    sum = [0, 0]
+    i = 0
+    rms = sample.each do |s|
+      sum[0] += s[0] * s[0]
+      sum[1] += s[1] * s[1]
+      i += 1
+    end
+
+    rms = (Math.sqrt(sum[0] / sample.count).to_i + Math.sqrt(sum[1] / sample.count).to_i) / 2
+
+    if rms < 11000
+      halves.push sample
+    else
+      puts "reject a half sample because rms = #{rms}"
+    end
   end
 
-  4.times do |i|
+  while quarters.count < 4 do
     start = nil
 
     if i == 0
@@ -182,10 +221,26 @@ iterations.times do
     end
 
     sample = main_buffer[start...(start + quarter_size)].map { |s| s }
-    quarters.push sample
+
+    # do rms here fuck u
+    sum = [0, 0]
+    i = 0
+    rms = sample.each do |s|
+      sum[0] += s[0] * s[0]
+      sum[1] += s[1] * s[1]
+      i += 1
+    end
+
+    rms = (Math.sqrt(sum[0] / sample.count).to_i + Math.sqrt(sum[1] / sample.count).to_i) / 2
+
+    if rms < 10000
+      quarters.push sample
+    else
+      puts "reject a quarter sample because rms = #{rms}"
+    end
   end
 
-  4.times do |i|
+  while eighths.count < 4 do
     start = nil
 
     if i == 0
@@ -199,10 +254,25 @@ iterations.times do
     end
 
     sample = main_buffer[start...(start + eighth_size)].map { |s| s }
-    eighths.push sample
+
+    sum = [0, 0]
+    i = 0
+    rms = sample.each do |s|
+      sum[0] += s[0] * s[0]
+      sum[1] += s[1] * s[1]
+      i += 1
+    end
+
+    rms = (Math.sqrt(sum[0] / sample.count).to_i + Math.sqrt(sum[1] / sample.count).to_i) / 2
+
+    if rms < 9000
+      eighths.push sample
+    else
+      puts "reject a eighth sample because rms = #{rms}"
+    end
   end
 
-  4.times do |i|
+  while sixteenths.count < 4 do
     start = nil
 
     if i == 0
@@ -216,7 +286,22 @@ iterations.times do
     end
 
     sample = main_buffer[start...(start + sixteenth_size)].map { |s| s }
-    sixteenths.push sample
+
+    sum = [0, 0]
+    i = 0
+    rms = sample.each do |s|
+      sum[0] += s[0] * s[0]
+      sum[1] += s[1] * s[1]
+      i += 1
+    end
+
+    rms = (Math.sqrt(sum[0] / sample.count).to_i + Math.sqrt(sum[1] / sample.count).to_i) / 2
+
+    if rms < 8000
+      sixteenths.push sample
+    else
+      puts "reject a sixteenth sample because rms = #{rms}"
+    end
   end
 
   # make a different thingy
@@ -261,18 +346,6 @@ iterations.times do
       ride:  '----------------',
       snare: '----------------',
       kick:  'x---x---x---x-x-'
-    },
-    {
-      hat:   '-x-x-x-x-x-x-x-x',
-      ride:  '----------------',
-      snare: 'x---x---x---x---',
-      kick:  'x---------x-----'
-    },
-    {
-      hat:   '----------------',
-      ride:  '-x---x---x---x--',
-      snare: '--xx--xx--xx--xx',
-      kick:  'x---x---x---x---'
     },
     {
       hat:   '--x---x---x---x-',
@@ -327,12 +400,6 @@ iterations.times do
       ride:  '----------------',
       snare: '----x-------x---',
       kick:  'x--x------x--x--'
-    },
-    {
-      hat:   '----------------',
-      ride:  '----------------',
-      snare: 'x-x-x-x-x-x-x-x-',
-      kick:  'x---------------'
     }
   ]
 
@@ -341,6 +408,7 @@ iterations.times do
   beats = []
 
   drum_patterns.each do |pattern|
+    rand_drum = drum_types.sample
     x = []
 
     %i(hat ride snare kick).each do |instrument|
@@ -355,7 +423,7 @@ iterations.times do
         if pattern_step == 'x'
           copy_index = pattern_step_index * samples_per_sixteenth
 
-          drums[instrument].each do |sample|
+          drums[rand_drum][instrument].each do |sample|
             instrument_data[copy_index] = sample.dup
             copy_index += 1
           end
@@ -366,12 +434,6 @@ iterations.times do
     end
 
     full_beat = merge_samples(*x)
-
-    # full_beat.map! do |fbs|
-    #   fbs.map! do |lrs|
-    #     lrs
-    #   end
-    # end
 
     beats << full_beat
   end
@@ -436,6 +498,8 @@ iterations.times do
   end
 
   # generate random bars with no pattern
+
+=begin
 
   puts "making random samples"
 
@@ -580,6 +644,7 @@ iterations.times do
 
     bars << mb
   end
+=end
 
   # now add beats versions of each measure
 
@@ -609,6 +674,8 @@ iterations.times do
   generated_measures = bars.map { |b| b.map { |s| s } }
 
   puts "randomly applying reverb"
+
+=begin
 
   generated_measures.each.with_index do |gm, gi|
     roll = rand 5
@@ -647,6 +714,8 @@ iterations.times do
       end
     end
   end
+
+=end
 
   # generate a song
 
@@ -699,7 +768,7 @@ iterations.times do
 
       puts "choices: #{choices.inspect}"
 
-      if choices.count > 0
+      if choices.count > 0 && sequence[i - 1][0].count < 4
         new_index = choices.sample
 
         puts "new chosen index: #{new_index}"
