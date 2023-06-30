@@ -6,6 +6,7 @@ parts = ARGV[0].split('.')
 caption = ARGV[1]
 location = ARGV[2] || 'Center'
 font = ARGV[3] || 'Times-New-Roman'
+size = ARGV[4] || 120
 
 if parts.count != 2
   puts 'filename format :('
@@ -24,12 +25,12 @@ MiniMagick::Tool::Convert.new do |img|
   img.background 'none'
   img.fill 'white'
   img.stroke 'black'
-  img.strokewidth '1'
-  img.pointsize '120'
+  img.strokewidth '2'
+  img.pointsize size
   img.size "#{width}x#{height}"
   # img.font 'Microsoft-JhengHei-Bold-&-Microsoft-JhengHei-UI-Bold'
-  img.font 'Times-New-Roman'
-  img.gravity 'southwest'
+  img.font font
+  img.gravity location
   # img << "caption: 行動する人は沈黙する"
   # img << "caption:\\n\\n行動計画"
   img << "caption:#{caption}"
